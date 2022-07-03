@@ -15,12 +15,14 @@ use Illuminate\Support\Facades\Route;
 |
 */
 Route::softDeletes('users', 'UserController');
+
 Auth::routes();
+
 Route::get('/home', [HomeController::class, 'index'])->name('home');
 
 Route::get('/', [UserController::class, 'index'])->name('users.index');
-Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
-Route::resource('/users', UserController::class)->except('index', 'create')->middleware('auth');
+
+Route::resource('/users', UserController::class)->except('index')->middleware('auth');
 
 
 

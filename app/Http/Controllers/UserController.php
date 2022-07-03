@@ -3,21 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Illuminate\Http\Request;
+use App\Services\UserServices;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Requests\UserRequest;
 use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
+    protected $users;
+
+    public function __construct(UserServices $users)
+    {
+        $this->users = $users;
+    }
     /**
      * Display a listing of the resource.
      * @return \Illuminate\Http\Response
      */
     public function index()
     {
+        $users = $this->users->list();
+
         return view('users.index', [
-            'users' => User::paginate(5)
+            'users' => $users
         ]);
     }
 
@@ -27,7 +35,7 @@ class UserController extends Controller
      */
     public function archived()
     {
-        $users = User::onlyTrashed()->get();
+        $users = $this->users->listTrashed();
 
         return view('users.trashed', compact('users'));
     }
@@ -39,10 +47,7 @@ class UserController extends Controller
      */
     public function create()
     {
-        if (!Auth::check()) {
-            return view('auth.register');
-        }
-        abort(403, 'Please log out first!');
+        return view('users.create');
     }
 
     /**
@@ -51,9 +56,42 @@ class UserController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(UserRequest $request)
     {
-        //
+        $attributes = $request->validate([
+            'username' => [
+                'string',
+                'required',
+                'min:3',
+                'max:255',
+                Rule::unique('users')
+            ],
+
+            'photo' => ['image'],
+            'prefixname' => ['required', Rule::in(['Mr', 'Mrs', 'Ms'])],
+            'firstname' => ['required', 'string', 'max:255'],
+            'lastname' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')
+            ],
+
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+        ]);
+
+        if (request('photo')) {
+
+            $attributes['photo'] = Storage::putFile('photos', $request->file('photo'));
+        }
+
+        $attributes['password'] = bcrypt($attributes['password']);
+
+        User::create($attributes);
+
+        return redirect()->route('users.index')->with('success', 'Your profile has been created');
     }
 
     /**
@@ -67,8 +105,9 @@ class UserController extends Controller
 
         return view('users.show', [
 
-            'user' => $user
+            'user' => $this->users->find($user->id)
         ]);
+
     }
 
     /**
@@ -80,7 +119,7 @@ class UserController extends Controller
     public function edit(User $user)
     {
         return view('users.edit', [
-            'user' => $user
+            'user' => $this->users->find($user->id)
         ]);
     }
 
@@ -91,7 +130,7 @@ class UserController extends Controller
      * @param  User $user
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, User $user)
+    public function update(UserRequest $request, User $user)
     {
 
         $attributes = $request->validate([
@@ -137,9 +176,7 @@ class UserController extends Controller
 
     public function restore($id)
     {
-        $user = User::onlyTrashed()->findOrFail($id);
-
-        $user->restore();
+       $this->users->restore($id);
 
         return back();
     }
@@ -151,7 +188,7 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
-        $user->delete();
+       $this->users->destroy($user);
 
         return redirect()->route('users.index')->with('success', 'The profile was delete');
     }
@@ -165,9 +202,7 @@ class UserController extends Controller
 
     public function forceDelete(int $id)
     {
-        $user = User::onlyTrashed()->findOrFail($id);
-
-        $user->forceDelete();
+        $this->users->delete($id);
 
         return redirect()->route('users.archived')->with('success', 'User erased!!');
     }

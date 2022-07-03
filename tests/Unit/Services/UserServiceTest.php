@@ -2,18 +2,16 @@
 
 namespace Tests\Unit\Services;
 
-use App\Models\User;
 use Tests\TestCase;
+use App\Models\User;
+use App\Services\UserServices;
+use Illuminate\Http\UploadedFile;
+use App\Providers\RouteServiceProvider;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Foundation\Testing\WithFaker;
+use \Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
-use \Illuminate\Pagination\LengthAwarePaginator;
-use App\Services\UserService;
-use App\Services\UserServices;
-use Illuminate\Http\Request;
-
-use function PHPUnit\Framework\assertEquals;
-use function PHPUnit\Framework\assertTrue;
 
 /**
  * @runTestsInSeparateProcesses
@@ -23,48 +21,80 @@ class UserServiceTest extends TestCase
 {
     use DatabaseMigrations, RefreshDatabase, WithFaker;
 
-//     /**
-//      * @test
-//      * @return void
-//      */
-//     public function it_can_return_a_paginated_list_of_users()
-//     {
-//           $page = new UserServices(new User, new Request);
-          
-//           assertEquals(LengthAwarePaginator::class, $page->list());
-//     }
-
     /**
      * @test
      * @return void
      */
-    public function it_can_store_a_user_to_database()
+    public function it_can_return_a_paginated_list_of_users()
     {
-         $user = new UserServices(new User, request());
 
-         $response = $this->get('register', [$user]);
+        User::factory(20)->create();
 
-         $response->assertStatus(200);
+        (new UserServices(new User, request()));
 
-     //    $user = User::factory()->make();
+        $response = $this->get('/');
 
-     //    $response = $this->get('register', [$user]);
-
-     //    $response->assertStatus(200);
-        
+        $response->assertSee('Next');
     }
 
     /**
      * @test
      * @return void
      */
-    public function it_can_find_and_return_an_existing_user()
+    public function test_it_can_store_a_user_to_database()
     {
-       $service = new UserServices(new User, request());
-       
-       $user = $service->find(1);
+        $this->assertCount(0, User::all());
 
-       assertEquals(1, $user->id);
+        $data = [
+            'prefixname' => 'Mr',
+            'firstname' => 'Christopher',
+            'middlename' => '',
+            'lastname' => 'Bwabwa',
+            'suffixname' => '',
+            'username' => 'chreez',
+            'email' => 'cbwabwa@mail.test',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'photo' => ' Some photo',
+            'type' => 'Admin'
+        ];
+
+        (new UserServices(new User, request()))->store($data);
+
+        $response = $this->post('register', $data);
+
+        $response->assertStatus(302);
+
+        $this->assertCount(1, User::all());
+    }
+
+    /**
+     * @test
+     * @return void
+     */
+    public function test_it_can_find_and_return_an_existing_user()
+    {
+        $data = [
+            'prefixname' => 'Mr',
+            'firstname' => 'Christopher',
+            'middlename' => '',
+            'lastname' => 'Bwabwa',
+            'suffixname' => '',
+            'username' => 'chreez',
+            'email' => 'cbwabwa@mail.test',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'photo' => ' Some photo',
+            'type' => 'Admin'
+        ];
+
+        (new UserServices(new User, request()))->store($data);
+
+        $this->post('register', $data);
+
+        $user = (new UserServices(new User, request()))->find(1);
+
+        $this->assertEquals('Christopher', $user->firstname);
     }
 
     /**
@@ -73,85 +103,162 @@ class UserServiceTest extends TestCase
      */
     public function it_can_update_an_existing_user()
     {
-       $service = new UserServices(new User, request());
+        $user = User::factory()->create();
 
-      $user = $service->update(1, [
-          'prefixname' => 'Ms',
-            'firstname' => 'Katarina',
-            'middlename' => 'Vasylivna',
-            'lastname' => 'Numerov',
+        $data = [
+            'prefixname' => 'Mr',
+            'firstname' => 'Pedri',
+            'middlename' => '',
+            'lastname' => 'Nion',
             'suffixname' => '',
-            'username' => 'katy',
-            'email' => 'kate@mail.test',
-            'password' => bcrypt('password'),
-            'photo' => 'No photo',
-            'type' => 'visitor'
-       ]);
+            'username' => 'chreez',
+            'email' => 'cbwabwa@mail.test',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'photo' => ' Some photo',
+            'type' => 'Admin'
+        ];
+
+        (new UserServices($user, request()))->update($user->id, $data);
+
+        $this->assertDatabaseHas('users', [
+            'firstname' => 'Pedri',
+        ]);
+    }
+
+    /**
+     * @test
+     * @return void
+     */
+    public function it_can_soft_delete_an_existing_user()
+    {
+
+        User::factory()->create();
+
+        $user = User::first();
+
+        $this->assertNotEquals('Christopher', $user->firstname);
+
+        (new UserServices($user, request()))->destroy($user->id);
+
+        $this->assertCount(0, User::all());
+
+        $this->assertSoftDeleted($user);
 
     }
 
-    // /**
-    //  * @test
-    //  * @return void
-    //  */
-    // public function it_can_soft_delete_an_existing_user()
-    // {
-    //     // Arrangements
+    /**
+     * @test
+     * @return void
+     */
+    public function it_can_return_a_paginated_list_of_trashed_users()
+    {
 
-    //     // Actions
+        $user = User::factory()->create();
 
-    //     // Assertions
-    // }
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
 
-    // /**
-    //  * @test
-    //  * @return void
-    //  */
-    // public function it_can_return_a_paginated_list_of_trashed_users()
-    // {
-    //     // Arrangements
+        $this->assertAuthenticated();
 
-    //     // Actions
+        $response->assertRedirect(RouteServiceProvider::HOME);
 
-    //     // Assertions
-    // }
+        $response2 = $this->get('/users/archived');
 
-    // /**
-    //  * @test
-    //  * @return void
-    //  */
-    // public function it_can_restore_a_soft_deleted_user()
-    // {
-    //     // Arrangements
+        $response2->assertStatus(200);
+    }
 
-    //     // Actions
+    /**
+     * @test
+     * @return void
+     */
+    public function it_can_restore_a_soft_deleted_user()
+    {
+        User::factory()->create();
 
-    //     // Assertions
-    // }
+        $this->assertDatabaseCount('users', 1);
 
-    // /**
-    //  * @test
-    //  * @return void
-    //  */
-    // public function it_can_permanently_delete_a_soft_deleted_user()
-    // {
-    //     // Arrangements
+        $user = User::first();
 
-    //     // Actions
+        (new UserServices($user, request()))->destroy($user->id);
 
-    //     // Assertions
-    // }
+        $this->assertSoftDeleted($user);
 
-    // /**
-    //  * @test
-    //  * @return void
-    //  */
-    // public function it_can_upload_photo()
-    // {
-    //     // Arrangements
+        (new UserServices($user, request()))->restore($user->id);
 
-    //     // Actions
+        $this->assertDatabaseCount('users', 1);
+    }
 
-    //     // Assertions
-    // }
+    /**
+     * @test
+     * @return void
+     */
+    public function it_can_permanently_delete_a_soft_deleted_user()
+    {
+        User::factory()->create();
+
+        $this->assertDatabaseCount('users', 1);
+
+        $user = User::first();
+
+        (new UserServices($user, request()))->destroy($user->id);
+
+        $this->assertSoftDeleted($user);
+
+        $trashed = User::onlyTrashed()->first();
+
+        (new UserServices($trashed, request()))->delete($trashed->id);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    /**
+     * @test
+     * @return void
+     */
+    public function it_can_upload_photo()
+    {
+        // Storage::fake('avatars');
+        
+        // $response = $this->json('POST', 'register', [
+        //     'prefixname' => 'Mr',
+        //     'firstname' => 'Pedri',
+        //     'middlename' => '',
+        //     'lastname' => 'Nion',
+        //     'suffixname' => '',
+        //     'username' => 'chreez',
+        //     'email' => 'cbwabwa@mail.test',
+        //     'password' => 'password',
+        //     'password_confirmation' => 'password',
+        //     'avatar' => UploadedFile::fake()->image('avatar.jpg'),
+        //     'type' => 'Admin'
+           
+        // ]);
+        // // Assert the file was stored...
+        // Storage::disk('avatars')->assertExists('avatar.jpg');
+        // // Assert a file does not exist...
+        // Storage::disk('avatars')->assertMissing('missing.jpg');
+
+        // $filename = UploadedFile::fake()->image('logo.jpg');
+
+        // $response = $this->post('register', [
+            
+        //     'prefixname' => 'Mr',
+        //     'firstname' => 'Pedri',
+        //     'middlename' => '',
+        //     'lastname' => 'Nion',
+        //     'suffixname' => '',
+        //     'username' => 'chreez',
+        //     'email' => 'cbwabwa@mail.test',
+        //     'password' => 'password',
+        //     'password_confirmation' => 'password',
+        //     'photo' => (new UserServices(new User, request()))->upload($filename),
+        //     'type' => 'Admin'
+
+        // ]);
+
+        // $response->assertInvalid();
+    }
 }

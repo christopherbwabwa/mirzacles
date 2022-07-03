@@ -1,5 +1,5 @@
 <x-layout>
-    <x-_message/>
+    <x-_message />
 
     <a href="{{ route('users.archived') }}">View archived users </a>
     @if ($users->count() > 0)
@@ -18,12 +18,12 @@
                 @foreach ($users as $user)
                     <tr>
                         <th scope="row"> {{ $user->id }} </th>
-                        <td> {{ "$user->prefixname ". $user->fullname }} </td>
+                        <td> {{ "$user->prefixname " . $user->fullname }} </td>
                         <td> {{ $user->username }} </td>
                         <td> {{ $user->email }} </td>
                         <td> {{ $user->created_at->diffForHumans() }} </td>
                         <td> <a href="{{ route('users.show', $user->username) }}" class="btn btn-primary">Show</a> </td>
-                        
+
                     </tr>
                 @endforeach
 
@@ -34,10 +34,13 @@
         <h1>No records yet.</h1>
     @endif
 
-    @guest
-        <a href="{{ route('users.create') }}" class="btn btn-outline-secondary">Register & create a user</a>
-    @endguest
 
-        {{ $users->links('pagination::bootstrap-4') }}
+    <div>
+        
+        <a href="{{ route('users.create') }}" class="btn btn-outline-secondary">Register & create a user</a>
+
+    </div>
+
+    <p>{{ $users->links('pagination::bootstrap-4') }}</p>
 
 </x-layout>

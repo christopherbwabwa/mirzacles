@@ -68,11 +68,16 @@
 
                                     <form style="display: inline" action="{{ route('users.destroy', $user) }}"
                                         method="POST">
+                                        
                                         @csrf
+                                        
                                         @method('DELETE')
+
                                         <button class="btn btn-outline-danger"
-                                            onclick="return confirm('Are you sure ?')">Delete
-                                            user</button>
+                                            onclick="return confirm('Are you sure ?')"
+                                            > Delete user
+                                        </button>
+                                    
                                     </form>
 
                                 </div>

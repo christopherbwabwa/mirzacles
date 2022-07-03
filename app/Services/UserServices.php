@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\UploadedFile;
 use App\Services\UserServiceInterface;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class UserServices implements UserServiceInterface
@@ -54,7 +55,29 @@ class UserServices implements UserServiceInterface
              *
              *  'column' => ['validation1', function1()]
              */
-            'firstname' => 'required',
+            
+            'username' => [
+                'string',
+                'required',
+                'min:3',
+                'max:255',
+                Rule::unique('users')
+            ],
+
+            'photo' => ['image'],
+            'prefixname' => ['required', Rule::in(['Mr', 'Mrs', 'Ms'])],
+            'firstname' => ['required', 'string', 'max:255'],
+            'lastname' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')
+            ],
+
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+
         ];
     }
 
@@ -65,9 +88,7 @@ class UserServices implements UserServiceInterface
      */
     public function list()
     {
-        return view('users.index', [
-            'users' => User::paginate(5)
-        ]);
+        return $this->model::paginate(5);
     }
 
     /**
@@ -78,17 +99,9 @@ class UserServices implements UserServiceInterface
      */
     public function store(array $attributes)
     {
-        
-        return Validator::make($attributes, [
+         $this->model::factory()->make($attributes);
 
-            'prefixname' => ['required', Rule::in(['Mr', 'Mrs', 'Ms'])],
-            'firstname' => ['required', 'string', 'max:255'],
-            'lastname' => ['required', 'string', 'max:255'],
-            'username' => ['required', 'string', 'alpha_dash', 'max:255', 'unique:users'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-    
+         return redirect()->route('home');
     }
 
     /**
@@ -100,12 +113,10 @@ class UserServices implements UserServiceInterface
      */
     public function find(int $id):? User
     {
-
-        $this->quick_create_user();
-
-        $user = User::find($id);
+        $user = User::withTrashed()->findOrFail($id);
 
         return $user;
+
     }
 
     /**
@@ -117,13 +128,12 @@ class UserServices implements UserServiceInterface
      */
     public function update(int $id, array $attributes): bool
     {
-        $this->quick_create_user();
-        
-       $user = User::find($id);
 
-       $user->update([$attributes]);
-    
-       return true;
+        $user = $this->model::findOrFail($id);
+
+        $user->update($attributes);
+
+        return true;
        
     }
 
@@ -135,7 +145,9 @@ class UserServices implements UserServiceInterface
      */
     public function destroy($id)
     {
-        // Code goes brrrr.
+       $users = $this->model->find($id);
+    
+       $users[0]->delete();
     }
 
     /**
@@ -145,7 +157,7 @@ class UserServices implements UserServiceInterface
      */
     public function listTrashed()
     {
-        // Code goes brrrr.
+       return $this->model::onlyTrashed()->get();
     }
 
     /**
@@ -156,7 +168,12 @@ class UserServices implements UserServiceInterface
      */
     public function restore($id)
     {
-        // Code goes brrrr.
+       $users = $this->model::onlyTrashed()
+                ->where('id', $id)
+                ->get();
+
+        $users[0]->restore();
+
     }
 
     /**
@@ -167,7 +184,10 @@ class UserServices implements UserServiceInterface
      */
     public function delete($id)
     {
-        // Code goes brrrr.
+       $user = $this->model::onlyTrashed()->findOrFail($id);
+
+       $user->forceDelete();
+       
     }
 
     /**
@@ -189,22 +209,7 @@ class UserServices implements UserServiceInterface
      */
     public function upload(UploadedFile $file)
     {
-        // Code goes brrrr.
+        Storage::putFile('photos', $this->request->file($file));
     }
 
-    private function quick_create_user()
-    {
-       return User::create([
-            'prefixname' => 'Mr',
-            'firstname' => 'Christopher',
-            'middlename' => '',
-            'lastname' => 'Bwabwa',
-            'suffixname' => '',
-            'username' => 'chreez',
-            'email' => 'cbwabwa@mail.test',
-            'password' => bcrypt('password'),
-            'photo' => ' Some photo',
-            'type' => 'Admin'
-        ]);
-    }
 }
