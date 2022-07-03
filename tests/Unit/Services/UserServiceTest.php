@@ -6,8 +6,6 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Services\UserServices;
 use Illuminate\Http\UploadedFile;
-use App\Providers\RouteServiceProvider;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Foundation\Testing\WithFaker;
 use \Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,11 +28,10 @@ class UserServiceTest extends TestCase
 
         User::factory(20)->create();
 
-        (new UserServices(new User, request()));
+       $data = (new UserServices(new User, request()))->list();
 
-        $response = $this->get('/');
+       $this->assertInstanceOf(LengthAwarePaginator::class, $data);
 
-        $response->assertSee('Next');
     }
 
     /**
@@ -45,6 +42,8 @@ class UserServiceTest extends TestCase
     {
         $this->assertCount(0, User::all());
 
+        $image = UploadedFile::fake()->image('logo.jpg');
+
         $data = [
             'prefixname' => 'Mr',
             'firstname' => 'Christopher',
@@ -54,16 +53,11 @@ class UserServiceTest extends TestCase
             'username' => 'chreez',
             'email' => 'cbwabwa@mail.test',
             'password' => 'password',
-            'password_confirmation' => 'password',
-            'photo' => ' Some photo',
+            'photo' => $image,
             'type' => 'Admin'
         ];
 
         (new UserServices(new User, request()))->store($data);
-
-        $response = $this->post('register', $data);
-
-        $response->assertStatus(302);
 
         $this->assertCount(1, User::all());
     }
@@ -74,6 +68,10 @@ class UserServiceTest extends TestCase
      */
     public function test_it_can_find_and_return_an_existing_user()
     {
+        $this->assertDatabaseCount('users', 0);
+
+        $image = UploadedFile::fake()->image('logo.jpg');
+
         $data = [
             'prefixname' => 'Mr',
             'firstname' => 'Christopher',
@@ -83,15 +81,14 @@ class UserServiceTest extends TestCase
             'username' => 'chreez',
             'email' => 'cbwabwa@mail.test',
             'password' => 'password',
-            'password_confirmation' => 'password',
-            'photo' => ' Some photo',
+            'photo' => $image,
             'type' => 'Admin'
         ];
 
         (new UserServices(new User, request()))->store($data);
 
-        $this->post('register', $data);
-
+        $this->assertDatabaseCount('users', 1);
+        
         $user = (new UserServices(new User, request()))->find(1);
 
         $this->assertEquals('Christopher', $user->firstname);
@@ -103,7 +100,8 @@ class UserServiceTest extends TestCase
      */
     public function it_can_update_an_existing_user()
     {
-        $user = User::factory()->create();
+
+        $image = UploadedFile::fake()->image('logo.jpg');
 
         $data = [
             'prefixname' => 'Mr',
@@ -115,9 +113,18 @@ class UserServiceTest extends TestCase
             'email' => 'cbwabwa@mail.test',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'photo' => ' Some photo',
+            'photo' => $image,
+
             'type' => 'Admin'
         ];
+
+        $this->assertDatabaseCount('users', 0);
+
+        User::factory()->create();
+
+        $this->assertDatabaseCount('users', 1);
+
+        $user = User::first();
 
         (new UserServices($user, request()))->update($user->id, $data);
 
@@ -135,11 +142,11 @@ class UserServiceTest extends TestCase
 
         User::factory()->create();
 
+        $this->assertDatabaseCount('users', 1);
+        
         $user = User::first();
 
-        $this->assertNotEquals('Christopher', $user->firstname);
-
-        (new UserServices($user, request()))->destroy($user->id);
+        (new UserServices(new User, request()))->destroy($user);
 
         $this->assertCount(0, User::all());
 
@@ -153,21 +160,20 @@ class UserServiceTest extends TestCase
      */
     public function it_can_return_a_paginated_list_of_trashed_users()
     {
+        User::factory(20)->create();
+        
+        $users = User::all();
 
-        $user = User::factory()->create();
+        foreach ($users as $user)
+        {
+            (new UserServices($user, request()))->destroy($user);
+        }
+        
+        
+        $data = (new UserServices(new User, request()))->listTrashed();
 
-        $response = $this->post('/login', [
-            'email' => $user->email,
-            'password' => 'password',
-        ]);
+        $this->assertInstanceOf(LengthAwarePaginator::class, $data);
 
-        $this->assertAuthenticated();
-
-        $response->assertRedirect(RouteServiceProvider::HOME);
-
-        $response2 = $this->get('/users/archived');
-
-        $response2->assertStatus(200);
     }
 
     /**
@@ -182,7 +188,7 @@ class UserServiceTest extends TestCase
 
         $user = User::first();
 
-        (new UserServices($user, request()))->destroy($user->id);
+        (new UserServices($user, request()))->destroy($user);
 
         $this->assertSoftDeleted($user);
 
@@ -203,7 +209,7 @@ class UserServiceTest extends TestCase
 
         $user = User::first();
 
-        (new UserServices($user, request()))->destroy($user->id);
+        (new UserServices($user, request()))->destroy($user);
 
         $this->assertSoftDeleted($user);
 
@@ -220,45 +226,27 @@ class UserServiceTest extends TestCase
      */
     public function it_can_upload_photo()
     {
-        // Storage::fake('avatars');
-        
-        // $response = $this->json('POST', 'register', [
-        //     'prefixname' => 'Mr',
-        //     'firstname' => 'Pedri',
-        //     'middlename' => '',
-        //     'lastname' => 'Nion',
-        //     'suffixname' => '',
-        //     'username' => 'chreez',
-        //     'email' => 'cbwabwa@mail.test',
-        //     'password' => 'password',
-        //     'password_confirmation' => 'password',
-        //     'avatar' => UploadedFile::fake()->image('avatar.jpg'),
-        //     'type' => 'Admin'
-           
-        // ]);
-        // // Assert the file was stored...
-        // Storage::disk('avatars')->assertExists('avatar.jpg');
-        // // Assert a file does not exist...
-        // Storage::disk('avatars')->assertMissing('missing.jpg');
+        $this->assertCount(0, User::all());
 
-        // $filename = UploadedFile::fake()->image('logo.jpg');
+        $image = UploadedFile::fake()->image('logo.jpg');
 
-        // $response = $this->post('register', [
-            
-        //     'prefixname' => 'Mr',
-        //     'firstname' => 'Pedri',
-        //     'middlename' => '',
-        //     'lastname' => 'Nion',
-        //     'suffixname' => '',
-        //     'username' => 'chreez',
-        //     'email' => 'cbwabwa@mail.test',
-        //     'password' => 'password',
-        //     'password_confirmation' => 'password',
-        //     'photo' => (new UserServices(new User, request()))->upload($filename),
-        //     'type' => 'Admin'
+        $data = [
+            'prefixname' => 'Mr',
+            'firstname' => 'Christopher',
+            'middlename' => '',
+            'lastname' => 'Bwabwa',
+            'suffixname' => '',
+            'username' => 'chreez',
+            'email' => 'cbwabwa@mail.test',
+            'password' => 'password',
+            'photo' => $image,
+            'type' => 'Admin'
+        ];
 
-        // ]);
+        (new UserServices(new User, request()))->store($data);
 
-        // $response->assertInvalid();
+        $user = User::first();
+
+        $this->assertNotEmpty($user['photo']);
     }
 }

@@ -4,9 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\UserServices;
-use Illuminate\Validation\Rule;
 use App\Http\Requests\UserRequest;
-use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -58,38 +56,7 @@ class UserController extends Controller
      */
     public function store(UserRequest $request)
     {
-        $attributes = $request->validate([
-            'username' => [
-                'string',
-                'required',
-                'min:3',
-                'max:255',
-                Rule::unique('users')
-            ],
-
-            'photo' => ['image'],
-            'prefixname' => ['required', Rule::in(['Mr', 'Mrs', 'Ms'])],
-            'firstname' => ['required', 'string', 'max:255'],
-            'lastname' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users')
-            ],
-
-            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
-        ]);
-
-        if (request('photo')) {
-
-            $attributes['photo'] = Storage::putFile('photos', $request->file('photo'));
-        }
-
-        $attributes['password'] = bcrypt($attributes['password']);
-
-        User::create($attributes);
+        $this->users->store($request->except('_token', 'password_confirmation'));
 
         return redirect()->route('users.index')->with('success', 'Your profile has been created');
     }
@@ -133,38 +100,8 @@ class UserController extends Controller
     public function update(UserRequest $request, User $user)
     {
 
-        $attributes = $request->validate([
-            'username' => [
-                'string',
-                'required',
-                'min:3',
-                'max:255',
-                Rule::unique('users')->ignore($user)
-            ],
-
-            'photo' => ['image'],
-            'prefixname' => ['required', Rule::in(['Mr', 'Mrs', 'Ms'])],
-            'firstname' => ['required', 'string', 'max:255'],
-            'lastname' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users')->ignore($user)
-            ],
-
-            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
-        ]);
-
-        if (request('photo')) {
-            $attributes['photo'] = Storage::putFile('photos', $request->file('photo'));
-        }
-
-        $attributes['password'] = bcrypt($attributes['password']);
-
-        $user->update($attributes);
-
+       $this->users->update($user->id, $request->except('_token', 'password_confirmation'));
+       
         return redirect()->route('users.show', $user)->with('success', 'Your profile has been updated');
     }
 

@@ -35,12 +35,16 @@
     @endif
 
 
-    <div>
-        
-        <a href="{{ route('users.create') }}" class="btn btn-outline-secondary">Register & create a user</a>
 
-    </div>
+    @auth
+        <div>
 
-    <p>{{ $users->links('pagination::bootstrap-4') }}</p>
+            <a href="{{ route('users.create') }}" class="btn btn-outline-secondary">Register & create a user</a>
+
+        </div>
+    
+    @endauth
+
+    <p> {{ $users->links('pagination::bootstrap-4') }} </p>
 
 </x-layout>

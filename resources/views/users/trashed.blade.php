@@ -51,6 +51,8 @@
         <h1>No records yet.</h1>
     @endif
 
+    <p> {{ $users->links('pagination::bootstrap-4') }} </p>
+
     <a href="{{ route('users.index') }}" class="btn btn-outline-secondary">Go Back</a>
 
 

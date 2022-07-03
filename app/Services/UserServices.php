@@ -46,22 +46,15 @@ class UserServices implements UserServiceInterface
      */
     public function rules($id = null)
     {
+        
         return [
-            /**
-             * Rule syntax:
-             *  'column' => 'validation1|validation2'
-             *
-             *  or
-             *
-             *  'column' => ['validation1', function1()]
-             */
             
             'username' => [
                 'string',
                 'required',
                 'min:3',
                 'max:255',
-                Rule::unique('users')
+                Rule::unique('users')->ignore($id)
             ],
 
             'photo' => ['image'],
@@ -73,12 +66,15 @@ class UserServices implements UserServiceInterface
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('users')
+                Rule::unique('users')->ignore($id)
             ],
 
             'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
 
         ];
+
+
+        
     }
 
     /**
@@ -99,7 +95,19 @@ class UserServices implements UserServiceInterface
      */
     public function store(array $attributes)
     {
-         $this->model::factory()->make($attributes);
+        $attributes['password'] = $this->hash($attributes['password']);
+
+        if ($attributes['photo']) {
+
+            $attributes['photo'] = Storage::putFile('photos', $attributes['photo']);
+        }
+
+        else
+        {
+            $attributes['photo'] = 'randomimage.jpg';
+        }
+
+         $this->model::factory()->create($attributes);
 
          return redirect()->route('home');
     }
@@ -128,9 +136,15 @@ class UserServices implements UserServiceInterface
      */
     public function update(int $id, array $attributes): bool
     {
-
         $user = $this->model::findOrFail($id);
 
+        $attributes['password'] = $this->hash($attributes['password']);
+
+        if ($attributes['photo']) {
+
+            $attributes['photo'] = Storage::putFile('photos', $attributes['photo']);
+        }
+        
         $user->update($attributes);
 
         return true;
@@ -157,7 +171,7 @@ class UserServices implements UserServiceInterface
      */
     public function listTrashed()
     {
-       return $this->model::onlyTrashed()->get();
+       return $this->model::onlyTrashed()->paginate(5);
     }
 
     /**
@@ -198,7 +212,7 @@ class UserServices implements UserServiceInterface
      */
     public function hash(string $key): string
     {
-        // Code goes brrrr.
+        return bcrypt($key);
     }
 
     /**
