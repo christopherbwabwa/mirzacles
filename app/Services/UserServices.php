@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use App\Services\UserServiceInterface;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -224,6 +225,15 @@ class UserServices implements UserServiceInterface
     public function upload(UploadedFile $file)
     {
         Storage::putFile('photos', $this->request->file($file));
+    }
+
+    public function details($user) 
+    {
+        DB::table('details')->insert([
+            'key' => 'Full name',
+            'value' => "$user->firstname $user->middlename $user->lastname",
+            'icon' => $user->photo
+        ]);
     }
 
 }
